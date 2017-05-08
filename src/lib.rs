@@ -78,6 +78,29 @@ impl Buffer {
     cnt
   }
 
+  /// Get the current position
+  ///
+  /// # Examples
+  /// ```
+  /// use circular::Buffer;
+  /// use std::io::{Read,Write};
+  ///
+  /// let mut output = [0;5];
+  ///
+  /// let mut b = Buffer::with_capacity(10);
+  ///
+  /// let res = b.write(&b"abcdefgh"[..]);
+  ///
+  /// b.read(&mut output);
+  ///
+  /// // Position must be 5
+  /// assert_eq!(b.position(), 5);
+  /// assert_eq!(b.available_data(), 3);
+  /// ```
+  pub fn position(&self) -> usize {
+      self.position
+  }
+
   pub fn reset(&mut self) {
     self.position = 0;
     self.end      = 0;
@@ -229,7 +252,7 @@ mod tests {
   #[test]
   fn delete() {
     let mut b = Buffer::with_capacity(10);
-    let res = b.write(&b"abcdefgh"[..]);
+    let _ = b.write(&b"abcdefgh"[..]);
     assert_eq!(b.available_data(), 8);
     assert_eq!(b.available_space(), 2);
 
@@ -245,7 +268,7 @@ mod tests {
   #[test]
   fn replace() {
     let mut b = Buffer::with_capacity(10);
-    let res = b.write(&b"abcdefgh"[..]);
+    let _ = b.write(&b"abcdefgh"[..]);
     assert_eq!(b.available_data(), 8);
     assert_eq!(b.available_space(), 2);
 
@@ -266,5 +289,16 @@ mod tests {
     assert_eq!(b.available_data(), 8);
     assert_eq!(b.available_space(), 2);
     assert_eq!(b.data(), &b"ab123Zgh"[..]);
+  }
+
+  use std::str;
+  #[test]
+  fn set_position() {
+    let mut output = [0;5];
+    let mut b = Buffer::with_capacity(10);
+    let _ = b.write(&b"abcdefgh"[..]);
+    let _ = b.read(&mut output);
+    assert_eq!(b.available_data(), 3);
+    println!("{:?}", b.position());
   }
 }
