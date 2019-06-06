@@ -140,6 +140,16 @@ impl Buffer {
     cnt
   }
 
+  /// advances the position tracker
+  ///
+  /// This method is similar to `consume()` but will not move data
+  /// to the beginning of the buffer
+  pub fn consume_noshift(&mut self, count: usize) -> usize {
+    let cnt        = cmp::min(count, self.available_data());
+    self.position += cnt;
+    cnt
+  }
+
   /// after having written data to the buffer, use this function
   /// to indicate how many bytes were written
   ///
@@ -393,5 +403,13 @@ mod tests {
     let _ = b.read(&mut output);
     assert_eq!(b.available_data(), 3);
     println!("{:?}", b.position());
+  }
+
+  #[test]
+  fn consume_without_shift() {
+    let mut b = Buffer::with_capacity(10);
+    let _ = b.write(&b"abcdefgh"[..]);
+    b.consume_noshift(6);
+    assert_eq!(b.position(), 6);
   }
 }
