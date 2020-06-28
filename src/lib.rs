@@ -350,6 +350,30 @@ impl Read for Buffer {
     }
 }
 
+#[cfg(features = "bytes")]
+impl bytes::Buf for Buffer {
+  #[inline]
+  fn remaining(&self) -> usize {
+    self.available_data()
+  }
+
+  #[inline]
+  fn bytes(&self) -> &[u8] {
+    self.data()
+  }
+
+  #[inline]
+  fn advance(&mut self, cnt: usize) {
+    self.consume(cnt)
+  }
+}
+
+// we can't support bytes::BufMut because the interface isn't
+// completely sound and also works with uninitialized buffers,
+// which isn't compatible with circular::Buffer.
+// additionally, it would require at least >= bytes-0.4.0
+// see also: https://github.com/tokio-rs/bytes/issues/328
+
 #[cfg(test)]
 mod tests {
     use super::*;
