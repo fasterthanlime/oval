@@ -108,21 +108,25 @@ impl Buffer {
     }
 
     /// returns how much data can be read from the buffer
+    #[inline]
     pub fn available_data(&self) -> usize {
         self.end - self.position
     }
 
     /// returns how much free space is available to write to
+    #[inline]
     pub fn available_space(&self) -> usize {
         self.capacity - self.end
     }
 
     /// returns the underlying vector's size
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
     /// returns true if there is no more data to read
+    #[inline]
     pub fn empty(&self) -> bool {
         self.position == self.end
     }
@@ -132,6 +136,7 @@ impl Buffer {
     /// if the position gets past the buffer's half,
     /// this will call `shift()` to move the remaining data
     /// to the beginning of the buffer
+    #[inline]
     pub fn consume(&mut self, count: usize) -> usize {
         let cnt = cmp::min(count, self.available_data());
         self.position += cnt;
@@ -146,6 +151,7 @@ impl Buffer {
     ///
     /// This method is similar to `consume()` but will not move data
     /// to the beginning of the buffer
+    #[inline]
     pub fn consume_noshift(&mut self, count: usize) -> usize {
         let cnt = cmp::min(count, self.available_data());
         self.position += cnt;
@@ -158,6 +164,7 @@ impl Buffer {
     /// if there is not enough available space, this function can call
     /// `shift()` to move the remaining data to the beginning of the
     /// buffer
+    #[inline]
     pub fn fill(&mut self, count: usize) -> usize {
         let cnt = cmp::min(count, self.available_space());
         self.end += cnt;
@@ -188,24 +195,28 @@ impl Buffer {
     /// assert_eq!(b.position(), 5);
     /// assert_eq!(b.available_data(), 3);
     /// ```
+    #[inline]
     pub fn position(&self) -> usize {
         self.position
     }
 
     /// moves the position and end trackers to the beginning
     /// this function does not modify the data
+    #[inline]
     pub fn reset(&mut self) {
         self.position = 0;
         self.end = 0;
     }
 
     /// returns a slice with all the available data
+    #[inline]
     pub fn data(&self) -> &[u8] {
         &self.memory[self.position..self.end]
     }
 
     /// returns a mutable slice with all the available space to
     /// write to
+    #[inline]
     pub fn space(&mut self) -> &mut [u8] {
         &mut self.memory[self.end..self.capacity]
     }
@@ -213,6 +224,7 @@ impl Buffer {
     /// moves the data at the beginning of the buffer
     ///
     /// if the position was more than 0, it is now 0
+    #[inline]
     pub fn shift(&mut self) {
         if self.position > 0 {
             let length = self.end - self.position;
