@@ -47,9 +47,11 @@
 //!   assert_eq!(b.data(), &b"cd"[..]);
 //! }
 //!
-use std::io::{self, Read, Write};
-use std::iter::repeat;
-use std::{cmp, ptr};
+use std::{
+    cmp,
+    io::{self, Read, Write},
+    iter::repeat,
+};
 
 /// the Buffer contains the underlying memory and data positions
 ///
@@ -213,40 +215,26 @@ impl Buffer {
     /// if the position was more than 0, it is now 0
     pub fn shift(&mut self) {
         if self.position > 0 {
-            unsafe {
-                let length = self.end - self.position;
-                ptr::copy(
-                    (&self.memory[self.position..self.end]).as_ptr(),
-                    (&mut self.memory[..length]).as_mut_ptr(),
-                    length,
-                );
-                self.position = 0;
-                self.end = length;
-            }
+            let length = self.end - self.position;
+            self.memory.copy_within(self.position..self.end, 0);
+            self.position = 0;
+            self.end = length;
         }
     }
 
-    //FIXME: this should probably be rewritten, and tested extensively
     #[doc(hidden)]
     pub fn delete_slice(&mut self, start: usize, length: usize) -> Option<usize> {
         if start + length >= self.available_data() {
             return None;
         }
 
-        unsafe {
-            let begin = self.position + start;
-            let next_end = self.end - length;
-            ptr::copy(
-                (&self.memory[begin + length..self.end]).as_ptr(),
-                (&mut self.memory[begin..next_end]).as_mut_ptr(),
-                self.end - (begin + length),
-            );
-            self.end = next_end;
-        }
+        let begin = self.position + start;
+        let next_end = self.end - length;
+        self.memory.copy_within(begin + length..self.end, begin);
+        self.end = next_end;
         Some(self.available_data())
     }
 
-    //FIXME: this should probably be rewritten, and tested extensively
     #[doc(hidden)]
     pub fn replace_slice(&mut self, data: &[u8], start: usize, length: usize) -> Option<usize> {
         let data_len = data.len();
@@ -256,43 +244,35 @@ impl Buffer {
             return None;
         }
 
-        unsafe {
-            let begin = self.position + start;
-            let slice_end = begin + data_len;
+        let begin = self.position + start;
+        let slice_end = begin + data_len;
+
+        if data_len < length {
             // we reduced the data size
-            if data_len < length {
-                ptr::copy(
-                    data.as_ptr(),
-                    (&mut self.memory[begin..slice_end]).as_mut_ptr(),
-                    data_len,
-                );
 
-                ptr::copy(
-                    (&self.memory[start + length..self.end]).as_ptr(),
-                    (&mut self.memory[slice_end..]).as_mut_ptr(),
-                    self.end - (start + length),
-                );
-                self.end = self.end - (length - data_len);
-
+            // the order here doesn't matter that much, we need to copy the replacement in
+            self.memory[begin..slice_end].copy_from_slice(data);
+            // and move the data from after the original slice to right behind the new slice
+            self.memory
+                .copy_within(begin + length..=self.end, begin + data_len);
+            self.end = self.end - (length - data_len);
+        } else if data_len == length {
+            // the size of the slice and the buffer remains unchanged, only the slice
+            // needs to be written
+            self.memory[begin..slice_end].copy_from_slice(data);
+        } else {
             // we put more data in the buffer
-            } else {
-                ptr::copy(
-                    (&self.memory[start + length..self.end]).as_ptr(),
-                    (&mut self.memory[start + data_len..]).as_mut_ptr(),
-                    self.end - (start + length),
-                );
-                ptr::copy(
-                    data.as_ptr(),
-                    (&mut self.memory[begin..slice_end]).as_mut_ptr(),
-                    data_len,
-                );
-                self.end = self.end + data_len - length;
-            }
+
+            // first copy all the data behind the old slice to be behind the new slice
+            self.memory
+                .copy_within(begin + length..self.end, begin + data_len);
+            // then copy the new slice in the vector at the desired location
+            self.memory[begin..slice_end].copy_from_slice(data);
+            self.end = self.end + data_len - length;
         }
         Some(self.available_data())
     }
 
-    //FIXME: this should probably be rewritten, and tested extensively
     #[doc(hidden)]
     pub fn insert_slice(&mut self, data: &[u8], start: usize) -> Option<usize> {
         let data_len = data.len();
@@ -300,21 +280,11 @@ impl Buffer {
             return None;
         }
 
-        unsafe {
-            let begin = self.position + start;
-            let slice_end = begin + data_len;
-            ptr::copy(
-                (&self.memory[start..self.end]).as_ptr(),
-                (&mut self.memory[start + data_len..]).as_mut_ptr(),
-                self.end - start,
-            );
-            ptr::copy(
-                data.as_ptr(),
-                (&mut self.memory[begin..slice_end]).as_mut_ptr(),
-                data_len,
-            );
-            self.end = self.end + data_len;
-        }
+        let begin = self.position + start;
+        let slice_end = begin + data_len;
+        self.memory.copy_within(start..self.end, start + data_len);
+        self.memory[begin..slice_end].copy_from_slice(data);
+        self.end = self.end + data_len;
         Some(self.available_data())
     }
 }
@@ -338,34 +308,28 @@ impl Write for Buffer {
 impl Read for Buffer {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let len = cmp::min(self.available_data(), buf.len());
-        unsafe {
-            ptr::copy(
-                (&self.memory[self.position..self.position + len]).as_ptr(),
-                buf.as_mut_ptr(),
-                len,
-            );
-            self.position += len;
-        }
+        buf[0..len].copy_from_slice(&self.memory[self.position..self.position + len]);
+        self.position += len;
         Ok(len)
     }
 }
 
 #[cfg(features = "bytes")]
 impl bytes::Buf for Buffer {
-  #[inline]
-  fn remaining(&self) -> usize {
-    self.available_data()
-  }
+    #[inline]
+    fn remaining(&self) -> usize {
+        self.available_data()
+    }
 
-  #[inline]
-  fn bytes(&self) -> &[u8] {
-    self.data()
-  }
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        self.data()
+    }
 
-  #[inline]
-  fn advance(&mut self, cnt: usize) {
-    self.consume(cnt)
-  }
+    #[inline]
+    fn advance(&mut self, cnt: usize) {
+        self.consume(cnt)
+    }
 }
 
 // we can't support bytes::BufMut because the interface isn't
