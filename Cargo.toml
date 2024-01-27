@@ -1,10 +1,10 @@
 [package]
-name = "circular"
-version = "0.3.0"
-authors = ["Geoffroy Couprie <geo.couprie@gmail.com>"]
+name = "oval"
+version = "1.0.0"
+authors = ["Geoffroy Couprie <geo.couprie@gmail.com>", "Amos Wenger <amoswenger@gmail.com>"]
 description = "A stream abstraction designed for use with nom"
 license = "MIT"
-repository = "https://github.com/sozu-proxy/circular"
+repository = "https://github.com/fasterthanlime/oval"
 readme = "README.md"
 
 include = [
