@@ -50,7 +50,6 @@
 use std::{
     cmp,
     io::{self, Read, Write},
-    iter::repeat,
 };
 
 /// the Buffer contains the underlying memory and data positions
@@ -72,11 +71,9 @@ pub struct Buffer {
 impl Buffer {
     /// allocates a new buffer of maximum size `capacity`
     pub fn with_capacity(capacity: usize) -> Buffer {
-        let mut v = Vec::with_capacity(capacity);
-        v.extend(repeat(0).take(capacity));
         Buffer {
-            memory: v,
-            capacity: capacity,
+            memory: vec![0u8; capacity],
+            capacity,
             position: 0,
             end: 0,
         }
@@ -267,7 +264,7 @@ impl Buffer {
             // and move the data from after the original slice to right behind the new slice
             self.memory
                 .copy_within(begin + length..=self.end, begin + data_len);
-            self.end = self.end - (length - data_len);
+            self.end -= length - data_len;
         } else if data_len == length {
             // the size of the slice and the buffer remains unchanged, only the slice
             // needs to be written
@@ -296,7 +293,7 @@ impl Buffer {
         let slice_end = begin + data_len;
         self.memory.copy_within(start..self.end, start + data_len);
         self.memory[begin..slice_end].copy_from_slice(data);
-        self.end = self.end + data_len;
+        self.end += data_len;
         Some(self.available_data())
     }
 }
@@ -326,7 +323,7 @@ impl Read for Buffer {
     }
 }
 
-#[cfg(features = "bytes")]
+#[cfg(feature = "bytes")]
 impl bytes::Buf for Buffer {
     #[inline]
     fn remaining(&self) -> usize {
@@ -340,7 +337,7 @@ impl bytes::Buf for Buffer {
 
     #[inline]
     fn advance(&mut self, cnt: usize) {
-        self.consume(cnt)
+        self.consume(cnt);
     }
 }
 
