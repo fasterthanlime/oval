@@ -1,0 +1,39 @@
+name: test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Install Rust specified toolchain
+        run: rustup show
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - name: Install tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just,nextest,cargo-hack
+      - name: Run cargo doc, deny warnings
+        run: |
+          export RUSTDOCFLAGS="-D warnings"
+          cargo doc --all-features --no-deps
+      - name: Run cargo clippy
+        run: |
+          cargo hack clippy --feature-powerset
+      - name: Run tests
+        run: just test
