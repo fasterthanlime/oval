@@ -48,7 +48,7 @@
 //! }
 //!
 use std::{
-    cmp::{self, Ordering},
+    cmp,
     io::{self, Read, Write},
 };
 
@@ -230,77 +230,6 @@ impl Buffer {
             self.end = length;
         }
     }
-
-    #[doc(hidden)]
-    pub fn delete_slice(&mut self, start: usize, length: usize) -> Option<usize> {
-        if start + length >= self.available_data() {
-            return None;
-        }
-
-        let begin = self.position + start;
-        let next_end = self.end - length;
-        self.memory.copy_within(begin + length..self.end, begin);
-        self.end = next_end;
-        Some(self.available_data())
-    }
-
-    #[doc(hidden)]
-    pub fn replace_slice(&mut self, data: &[u8], start: usize, length: usize) -> Option<usize> {
-        let data_len = data.len();
-        if start + length > self.available_data()
-            || self.position + start + data_len > self.capacity
-        {
-            return None;
-        }
-
-        let begin = self.position + start;
-        let slice_end = begin + data_len;
-
-        match data_len.cmp(&length) {
-            Ordering::Less => {
-                // we reduced the data size
-
-                // the order here doesn't matter that much, we need to copy the replacement in
-                self.memory[begin..slice_end].copy_from_slice(data);
-                // and move the data from after the original slice to right behind the new slice
-                self.memory
-                    .copy_within(begin + length..=self.end, begin + data_len);
-                self.end -= length - data_len;
-            }
-            Ordering::Equal => {
-                // the size of the slice and the buffer remains unchanged, only the slice
-                // needs to be written
-                self.memory[begin..slice_end].copy_from_slice(data);
-            }
-            Ordering::Greater => {
-                // we put more data in the buffer
-
-                // first copy all the data behind the old slice to be behind the new slice
-                self.memory
-                    .copy_within(begin + length..self.end, begin + data_len);
-                // then copy the new slice in the vector at the desired location
-                self.memory[begin..slice_end].copy_from_slice(data);
-                self.end = self.end + data_len - length;
-            }
-        }
-
-        Some(self.available_data())
-    }
-
-    #[doc(hidden)]
-    pub fn insert_slice(&mut self, data: &[u8], start: usize) -> Option<usize> {
-        let data_len = data.len();
-        if start > self.available_data() || self.position + self.end + data_len > self.capacity {
-            return None;
-        }
-
-        let begin = self.position + start;
-        let slice_end = begin + data_len;
-        self.memory.copy_within(start..self.end, start + data_len);
-        self.memory[begin..slice_end].copy_from_slice(data);
-        self.end += data_len;
-        Some(self.available_data())
-    }
 }
 
 impl Write for Buffer {
@@ -387,48 +316,6 @@ mod tests {
         assert_eq!(b.available_data(), 10);
         assert_eq!(b.available_space(), 0);
         assert_eq!(b.data(), &b"cdefghijkl"[..]);
-    }
-
-    #[test]
-    fn delete() {
-        let mut b = Buffer::with_capacity(10);
-        let _ = b.write(&b"abcdefgh"[..]);
-        assert_eq!(b.available_data(), 8);
-        assert_eq!(b.available_space(), 2);
-
-        assert_eq!(b.delete_slice(2, 3), Some(5));
-        assert_eq!(b.available_data(), 5);
-        assert_eq!(b.available_space(), 5);
-        assert_eq!(b.data(), &b"abfgh"[..]);
-
-        assert_eq!(b.delete_slice(5, 2), None);
-        assert_eq!(b.delete_slice(4, 2), None);
-    }
-
-    #[test]
-    fn replace() {
-        let mut b = Buffer::with_capacity(10);
-        let _ = b.write(&b"abcdefgh"[..]);
-        assert_eq!(b.available_data(), 8);
-        assert_eq!(b.available_space(), 2);
-
-        assert_eq!(b.replace_slice(&b"ABC"[..], 2, 3), Some(8));
-        assert_eq!(b.available_data(), 8);
-        assert_eq!(b.available_space(), 2);
-        assert_eq!(b.data(), &b"abABCfgh"[..]);
-
-        assert_eq!(b.replace_slice(&b"XYZ"[..], 8, 3), None);
-        assert_eq!(b.replace_slice(&b"XYZ"[..], 6, 3), None);
-
-        assert_eq!(b.replace_slice(&b"XYZ"[..], 2, 4), Some(7));
-        assert_eq!(b.available_data(), 7);
-        assert_eq!(b.available_space(), 3);
-        assert_eq!(b.data(), &b"abXYZgh"[..]);
-
-        assert_eq!(b.replace_slice(&b"123"[..], 2, 2), Some(8));
-        assert_eq!(b.available_data(), 8);
-        assert_eq!(b.available_space(), 2);
-        assert_eq!(b.data(), &b"ab123Zgh"[..]);
     }
 
     #[test]
