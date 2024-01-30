@@ -1,6 +1,6 @@
 [package]
 name = "oval"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Geoffroy Couprie <geo.couprie@gmail.com>", "Amos Wenger <amoswenger@gmail.com>"]
 description = "A stream abstraction designed for use with nom"
 license = "MIT"
