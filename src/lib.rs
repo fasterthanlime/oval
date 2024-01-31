@@ -265,7 +265,7 @@ impl bytes::Buf for Buffer {
     }
 
     #[inline]
-    fn bytes(&self) -> &[u8] {
+    fn chunk(&self) -> &[u8] {
         self.data()
     }
 
@@ -275,11 +275,24 @@ impl bytes::Buf for Buffer {
     }
 }
 
-// we can't support bytes::BufMut because the interface isn't
-// completely sound and also works with uninitialized buffers,
-// which isn't compatible with circular::Buffer.
-// additionally, it would require at least >= bytes-0.4.0
-// see also: https://github.com/tokio-rs/bytes/issues/328
+#[cfg(feature = "bytes")]
+unsafe impl bytes::BufMut for Buffer {
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        self.available_space()
+    }
+
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        self.fill(cnt);
+    }
+
+    #[inline]
+    fn chunk_mut(&mut self) -> &mut bytes::buf::UninitSlice {
+        // UninitSlice is repr(transparent), so safe to transmute
+        unsafe { &mut *(self.space() as *mut [u8] as *mut _) }
+    }
+}
 
 #[cfg(test)]
 mod tests {
