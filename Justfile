@@ -9,3 +9,4 @@ check:
 # Run all tests locally
 test *args:
 	cargo nextest run {{args}} --all-features
+	cargo test --doc
