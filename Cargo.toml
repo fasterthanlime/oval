@@ -6,6 +6,7 @@ description = "A stream abstraction designed for use with nom, winnow, etc."
 license = "MIT"
 repository = "https://github.com/fasterthanlime/oval"
 readme = "README.md"
+edition = "2015"
 
 include = [
   "LICENSE",

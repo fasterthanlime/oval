@@ -58,9 +58,7 @@ use std::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct Buffer {
     /// the Vec containing the data
-    memory: Vec<u8>,
-    /// the current capacity of the Buffer
-    capacity: usize,
+    memory: Box<[u8]>,
     /// the current beginning of the available data
     position: usize,
     /// the current end of the available data
@@ -72,8 +70,7 @@ impl Buffer {
     /// allocates a new buffer of maximum size `capacity`
     pub fn with_capacity(capacity: usize) -> Buffer {
         Buffer {
-            memory: vec![0u8; capacity],
-            capacity,
+            memory: vec![0u8; capacity].into_boxed_slice(),
             position: 0,
             end: 0,
         }
@@ -84,8 +81,7 @@ impl Buffer {
     /// the buffer starts full, its available data size is exactly `data.len()`
     pub fn from_slice(data: &[u8]) -> Buffer {
         Buffer {
-            memory: Vec::from(data),
-            capacity: data.len(),
+            memory: Vec::from(data).into_boxed_slice(),
             position: 0,
             end: data.len(),
         }
@@ -95,12 +91,13 @@ impl Buffer {
     ///
     /// this does nothing if the buffer is already large enough
     pub fn grow(&mut self, new_size: usize) -> bool {
-        if self.capacity >= new_size {
+        if self.capacity() >= new_size {
             return false;
         }
 
-        self.memory.resize(new_size, 0);
-        self.capacity = new_size;
+        let mut memory = vec![0u8; new_size].into_boxed_slice();
+        memory[0..self.capacity()].copy_from_slice(&self.memory);
+        self.memory = memory;
         true
     }
 
@@ -113,13 +110,13 @@ impl Buffer {
     /// returns how much free space is available to write to
     #[inline]
     pub fn available_space(&self) -> usize {
-        self.capacity - self.end
+        self.capacity() - self.end
     }
 
     /// returns the underlying vector's size
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.capacity
+        self.memory.len()
     }
 
     /// returns true if there is no more data to read
@@ -137,7 +134,7 @@ impl Buffer {
     pub fn consume(&mut self, count: usize) -> usize {
         let cnt = cmp::min(count, self.available_data());
         self.position += cnt;
-        if self.position > self.capacity / 2 {
+        if self.position > self.capacity() / 2 {
             //trace!("consume shift: pos {}, end {}", self.position, self.end);
             self.shift();
         }
@@ -215,7 +212,9 @@ impl Buffer {
     /// write to
     #[inline]
     pub fn space(&mut self) -> &mut [u8] {
-        &mut self.memory[self.end..self.capacity]
+        let end = self.end;
+        let capacity = self.capacity();
+        &mut self.memory[end..capacity]
     }
 
     /// moves the data at the beginning of the buffer
