@@ -21,3 +21,6 @@ include = [
 [dependencies.bytes]
 version = "1.0.0"
 optional = true
+
+[features]
+read_buf = []
