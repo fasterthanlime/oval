@@ -47,6 +47,7 @@
 //!   assert_eq!(b.data(), &b"cd"[..]);
 //! }
 //!
+#![cfg_attr(feature = "read_buf", feature(read_buf, core_io_borrowed_buf))]
 use std::{
     cmp,
     io::{self, Read, Write},
@@ -254,6 +255,29 @@ impl Read for Buffer {
         buf[0..len].copy_from_slice(&self.memory[self.position..self.position + len]);
         self.position += len;
         Ok(len)
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
+        if buf.len() > self.available_data() {
+            Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "failed to fill whole buffer",
+            ))
+        } else {
+            self.read(buf).map(|_| ())
+        }
+    }
+
+    #[cfg(feature = "read_buf")]
+    fn read_buf_exact(&mut self, cursor: io::BorrowedCursor<'_>) -> io::Result<()> {
+        if cursor.capacity() > self.available_data() {
+            Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "failed to fill whole buffer",
+            ))
+        } else {
+            self.read_buf(cursor)
+        }
     }
 }
 
